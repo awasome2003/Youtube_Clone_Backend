@@ -65,15 +65,31 @@ app.use((req, res, next) => {
 });
 
 // Regular middleware
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://youtube-clone-frontend-ruddy.vercel.app/", // <-- CHANGE THIS
+];
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: function (origin, callback) {
+      // allow requests with no origin (Postman, mobile apps)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
-app.use(express.urlencoded({ extended: true }));
 
-console.log("Absolute path to uploads:", path.join(__dirname, "./uploads"));
+// handle preflight
+app.options("*", cors());
+
+app.use(express.urlencoded({ extended: true }));
 
 mongoose
   .connect(process.env.MONGO_URI || "mongodb://127.0.0.1:27017/youtube-clone", {
