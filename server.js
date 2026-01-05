@@ -67,7 +67,7 @@ app.use((req, res, next) => {
 // Regular middleware
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://youtube-clone-frontend-ruddy.vercel.app/", // <-- CHANGE THIS
+  "https://youtube-clone-frontend-ruddy.vercel.app",
 ];
 
 app.use(
