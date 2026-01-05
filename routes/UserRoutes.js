@@ -38,7 +38,7 @@ router.patch("/me",
     .withMessage('Channel name must be less than 50 characters'),
   body('website')
     .optional({ checkFalsy: true })
-    .isURL()
+    .isURL({ require_protocol: false })
     .withMessage('Please provide a valid website URL'),
   validate,
   userController.updateUserProfile
