@@ -52,19 +52,6 @@ const notificationLimiter = rateLimit({
   max: 100, // limit each IP
 });
 
-
-
-
-// Special middleware for handling multipart/form-data
-app.use((req, res, next) => {
-  if (req.originalUrl === "/api/videos" && req.method === "POST") {
-    next();
-  } else {
-    express.json()(req, res, next);
-  }
-});
-
-// Regular middleware
 const allowedOrigins = [
   "http://localhost:5173",
   "https://youtube-clone-frontend-ruddy.vercel.app",
@@ -73,7 +60,6 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow requests with no origin (Postman, mobile apps)
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
@@ -86,8 +72,8 @@ app.use(
   })
 );
 
-// handle preflight
 app.options("*", cors());
+
 
 app.use(express.urlencoded({ extended: true }));
 
