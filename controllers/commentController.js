@@ -44,6 +44,11 @@ exports.addComment = catchAsync(async (req, res, next) => {
     await Comment.findByIdAndUpdate(parentCommentId, {
       $push: { replies: comment._id },
     });
+  } else {
+    // If it's a top-level comment, add to video's comments array
+    await Video.findByIdAndUpdate(videoId, {
+      $push: { comments: comment._id }
+    });
   }
 
   // Populate user details
@@ -87,6 +92,15 @@ exports.getComments = catchAsync(async (req, res, next) => {
     .skip((page - 1) * limit)
     .limit(limit);
 
+  const formattedComments = comments.map(comment => {
+    const obj = comment.toObject();
+    return {
+      ...obj,
+      likeCount: (obj.likes && Array.isArray(obj.likes)) ? obj.likes.length : 0,
+      dislikeCount: (obj.dislikes && Array.isArray(obj.dislikes)) ? obj.dislikes.length : 0
+    };
+  });
+
   const total = await Comment.countDocuments({
     video: videoId,
     parentComment: null,
@@ -94,9 +108,71 @@ exports.getComments = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: "success",
-    results: comments.length,
+    results: formattedComments.length,
     total,
-    data: { comments },
+    data: { comments: formattedComments },
+  });
+});
+
+/**
+ * @desc    Like a comment
+ * @route   PATCH /api/comments/:commentId/like
+ * @access  Private
+ */
+exports.likeComment = catchAsync(async (req, res, next) => {
+  const comment = await Comment.findById(req.params.commentId);
+  if (!comment) return next(new AppError("Comment not found", 404));
+
+  const userId = req.user._id;
+  const isLiked = comment.likes.includes(userId);
+
+  if (isLiked) {
+    comment.likes.pull(userId);
+  } else {
+    comment.dislikes.pull(userId);
+    comment.likes.push(userId);
+  }
+
+  await comment.save();
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      likes: comment.likes.length,
+      dislikes: comment.dislikes.length,
+      isLiked: !isLiked
+    }
+  });
+});
+
+/**
+ * @desc    Dislike a comment
+ * @route   PATCH /api/comments/:commentId/dislike
+ * @access  Private
+ */
+exports.dislikeComment = catchAsync(async (req, res, next) => {
+  const comment = await Comment.findById(req.params.commentId);
+  if (!comment) return next(new AppError("Comment not found", 404));
+
+  const userId = req.user._id;
+  const isDisliked = comment.dislikes.includes(userId);
+
+  if (isDisliked) {
+    comment.dislikes.pull(userId);
+  } else {
+    comment.likes.pull(userId);
+    comment.dislikes.push(userId);
+  }
+
+  await comment.save();
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      likes: comment.likes.length,
+      dislikes: comment.dislikes.length,
+      isDisliked: !isDisliked
+    }
   });
 });
 

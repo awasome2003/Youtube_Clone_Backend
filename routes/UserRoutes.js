@@ -6,7 +6,7 @@ const auth = require("../middleware/auth");
 const validate = require("../middleware/validate");
 
 // Get user profile by ID
-router.get("/:id", 
+router.get("/:id",
   param('id').isMongoId().withMessage('Invalid user ID'),
   validate,
   userController.getUserProfile
@@ -16,7 +16,7 @@ router.get("/:id",
 router.get("/me", auth, userController.getCurrentUserProfile);
 
 // Update user profile
-router.patch("/me", 
+router.patch("/me",
   auth,
   body('username')
     .optional()
@@ -48,7 +48,7 @@ router.patch("/me",
 router.patch("/avatar", auth, userController.updateUserAvatar);
 
 // Get user's uploaded videos
-router.get("/:id/videos", 
+router.get("/:id/videos",
   param('id').isMongoId().withMessage('Invalid user ID'),
   validate,
   userController.getUserVideos
@@ -58,7 +58,7 @@ router.get("/:id/videos",
 router.get("/me/videos", auth, userController.getCurrentUserVideos);
 
 // Get user's subscriptions
-router.get("/:id/subscriptions", 
+router.get("/:id/subscriptions",
   param('id').isMongoId().withMessage('Invalid user ID'),
   validate,
   userController.getUserSubscriptions
@@ -68,7 +68,7 @@ router.get("/:id/subscriptions",
 router.get("/me/subscriptions", auth, userController.getCurrentUserSubscriptions);
 
 // Get user's saved videos
-router.get("/:id/saved", 
+router.get("/:id/saved",
   param('id').isMongoId().withMessage('Invalid user ID'),
   validate,
   userController.getUserSavedVideos
@@ -76,5 +76,13 @@ router.get("/:id/saved",
 
 // Get current user's saved videos
 router.get("/me/saved", auth, userController.getCurrentUserSavedVideos);
+
+// Toggle subscription
+router.post("/subscribe/:channelId",
+  auth,
+  param('channelId').isMongoId().withMessage('Invalid channel ID'),
+  validate,
+  userController.toggleSubscribe
+);
 
 module.exports = router;

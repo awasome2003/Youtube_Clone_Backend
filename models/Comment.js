@@ -39,6 +39,18 @@ const commentSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
   },
+  likes: [
+    {
+      type: mongoose.Schema.ObjectId,
+      ref: "User",
+    },
+  ],
+  dislikes: [
+    {
+      type: mongoose.Schema.ObjectId,
+      ref: "User",
+    },
+  ],
 });
 
 // Update the 'updatedAt' field before saving

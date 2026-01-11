@@ -39,7 +39,13 @@ const videoSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
-    
+    viewedBy: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: "User",
+      },
+    ],
+
     comments: [{ type: mongoose.Schema.Types.ObjectId, ref: "Comment" }],
 
     likes: [

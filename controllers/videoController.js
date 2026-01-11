@@ -1,4 +1,5 @@
 const Video = require("../models/Video");
+const jwt = require("jsonwebtoken");
 const fs = require("fs");
 const path = require("path");
 const { promisify } = require("util");
@@ -75,7 +76,7 @@ exports.getVideoDetails = async (req, res) => {
       .populate("userId", "username avatar subscribers")
       .populate({
         path: "comments",
-        populate: { path: "userId", select: "username avatar" },
+        populate: { path: "user", select: "username avatar" },
       });
 
     if (!video) {
@@ -425,8 +426,9 @@ exports.streamVideo = async (req, res) => {
       return res.status(404).json({ error: "Video not found" });
     }
 
-    const videoPath = path.join(__dirname, "..", video.videoUrl);
+    const videoPath = path.join(__dirname, "..", video.videoUrl.replace(/^\//, ""));
     if (!fs.existsSync(videoPath)) {
+      console.error("Video file not found at:", videoPath);
       return res.status(404).json({ error: "Video file missing" });
     }
 
@@ -457,8 +459,8 @@ exports.streamVideo = async (req, res) => {
       fs.createReadStream(videoPath).pipe(res);
     }
 
-    // Increment view count
-    Video.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } }).exec();
+    // View count increment removed from here to prevent double-counting.
+    // It is now handled by the dedicated /api/videos/:id/view endpoint called by the frontend.
   } catch (err) {
     console.error("Stream error:", err);
     res.status(500).json({ error: "Video streaming failed" });
@@ -467,7 +469,7 @@ exports.streamVideo = async (req, res) => {
 
 exports.getRecommendedVideos = async (req, res) => {
   try {
-    const cacheKey = `rec-${req.params.videoId}`;
+    const cacheKey = `rec-${req.params.id}`;
     const cached = recoCache.get(cacheKey);
 
     // Return cached recommendations if available
@@ -479,7 +481,7 @@ exports.getRecommendedVideos = async (req, res) => {
       });
     }
 
-    const currentVideo = await Video.findById(req.params.videoId);
+    const currentVideo = await Video.findById(req.params.id);
     if (!currentVideo) {
       return res.status(404).json({
         success: false,
@@ -619,16 +621,37 @@ exports.searchVideos = async (req, res) => {
 exports.recordView = async (req, res, next) => {
   try {
     const videoId = req.params.id;
-
-    // Increment view count (atomic operation)
-    const video = await Video.findByIdAndUpdate(
-      videoId,
-      { $inc: { views: 1 } },
-      { new: true }
-    );
+    const video = await Video.findById(videoId);
 
     if (!video) {
       return next(new AppError("Video not found", 404));
+    }
+
+    // Try to get userId from token if provided
+    let userId = null;
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+      const token = req.headers.authorization.split(" ")[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.id;
+      } catch (e) {
+        // Token invalid or expired, ignore
+      }
+    }
+
+    if (userId) {
+      // Check if logged-in user has already viewed
+      const hasViewed = video.viewedBy.some(id => id.toString() === userId.toString());
+      if (!hasViewed) {
+        video.viewedBy.push(userId);
+        video.views += 1;
+        await video.save();
+      }
+    } else {
+      // Guest view - increment for now
+      // (Optional: Implement IP tracking or cookies for guest uniqueness)
+      video.views += 1;
+      await video.save();
     }
 
     res.status(200).json({

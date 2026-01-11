@@ -85,9 +85,9 @@ exports.updateUserProfile = catchAsync(async (req, res, next) => {
 
   // Check if username or email already exists (if being updated)
   if (updatedData.username) {
-    const existingUser = await User.findOne({ 
-      username: updatedData.username, 
-      _id: { $ne: req.user._id } 
+    const existingUser = await User.findOne({
+      username: updatedData.username,
+      _id: { $ne: req.user._id }
     });
     if (existingUser) {
       return next(new AppError("Username already taken", 400));
@@ -95,9 +95,9 @@ exports.updateUserProfile = catchAsync(async (req, res, next) => {
   }
 
   if (updatedData.email) {
-    const existingUser = await User.findOne({ 
-      email: updatedData.email, 
-      _id: { $ne: req.user._id } 
+    const existingUser = await User.findOne({
+      email: updatedData.email,
+      _id: { $ne: req.user._id }
     });
     if (existingUser) {
       return next(new AppError("Email already taken", 400));
@@ -347,9 +347,9 @@ exports.deleteVideo = catchAsync(async (req, res, next) => {
   }
 
   // Find the video and ensure it belongs to the current user
-  const video = await Video.findOneAndDelete({ 
-    _id: videoId, 
-    userId: req.user._id 
+  const video = await Video.findOneAndDelete({
+    _id: videoId,
+    userId: req.user._id
   });
 
   if (!video) {
@@ -374,5 +374,36 @@ exports.deleteVideo = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     message: "Video deleted successfully",
+  });
+});
+// Toggle Subscription
+exports.toggleSubscribe = catchAsync(async (req, res, next) => {
+  const channelId = req.params.channelId;
+  const userId = req.user._id;
+
+  if (channelId === userId.toString()) {
+    return next(new AppError("You cannot subscribe to yourself", 400));
+  }
+
+  const channel = await User.findById(channelId);
+  if (!channel) {
+    return next(new AppError("Channel not found", 404));
+  }
+
+  const user = await User.findById(userId);
+  const isSubscribed = user.subscribedChannels.includes(channelId);
+
+  if (isSubscribed) {
+    user.subscribedChannels.pull(channelId);
+  } else {
+    user.subscribedChannels.push(channelId);
+  }
+
+  await user.save();
+
+  res.status(200).json({
+    status: "success",
+    message: isSubscribed ? "Unsubscribed successfully" : "Subscribed successfully",
+    isSubscribed: !isSubscribed
   });
 });
