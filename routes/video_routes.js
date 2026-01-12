@@ -14,7 +14,9 @@ const {
   recordView,
   saveVideo,
   getSavedVideos,
-  removeSavedVideo
+  removeSavedVideo,
+  getLikedVideos,
+  getWatchHistory
 } = require("../controllers/videoController");
 const { updateVideo } = require("../controllers/userController");
 const upload = require("../utils/upload");
@@ -29,27 +31,27 @@ const dislikeLimiter = rateLimit({
 
 // Public routes
 router.get("/", getVideos);
-router.get("/:id", 
+router.get("/:id",
   param('id').isMongoId().withMessage('Invalid video ID'),
   validate,
   getVideoDetails);
-router.get("/:id/stream", 
+router.get("/:id/stream",
   param('id').isMongoId().withMessage('Invalid video ID'),
   validate,
   streamVideo);
-router.get("/:id/recommendations", 
+router.get("/:id/recommendations",
   param('id').isMongoId().withMessage('Invalid video ID'),
   validate,
   getRecommendedVideos);
 router.get("/search/:query", searchVideos);
 // routes/videoRoutes.js
-router.post("/:id/view", 
+router.post("/:id/view",
   param('id').isMongoId().withMessage('Invalid video ID'),
   validate,
   recordView);
 
 // Protected routes
-router.post("/upload", auth, upload.single("video"), 
+router.post("/upload", auth, upload.single("video"),
   body('title')
     .trim()
     .isLength({ min: 1, max: 100 })
@@ -61,41 +63,47 @@ router.post("/upload", auth, upload.single("video"),
     .withMessage('Description must be less than 5000 characters'),
   validate,
   uploadVideo);
-router.patch("/:id/like", 
+router.patch("/:id/like",
   auth,
   param('id').isMongoId().withMessage('Invalid video ID'),
   validate,
   likeVideo);
-router.patch("/:id/dislike", 
+router.patch("/:id/dislike",
   auth,
   dislikeLimiter,
   param('id').isMongoId().withMessage('Invalid video ID'),
   validate,
   dislikeVideo);
-router.patch("/:id", 
+router.patch("/:id",
   auth,
   param('id').isMongoId().withMessage('Invalid video ID'),
   validate,
   updateVideo);
 
-router.delete("/:id/delete", 
+router.delete("/:id/delete",
   auth,
   param('id').isMongoId().withMessage('Invalid video ID'),
   validate,
   deleteVideo);
 
 // Save video routes
-router.post("/save", 
+router.post("/save",
   auth,
   body('videoId')
     .isMongoId().withMessage('Invalid video ID'),
   validate,
   saveVideo); // save a video
 router.get("/saved/all", auth, getSavedVideos); // get saved videos
-router.delete("/saved/:videoId", 
+router.delete("/saved/:videoId",
   auth,
   param('videoId').isMongoId().withMessage('Invalid video ID'),
   validate,
   removeSavedVideo); // remove saved
+
+// Liked videos route
+router.get("/liked/all", auth, getLikedVideos);
+
+// History route
+router.get("/history/all", auth, getWatchHistory);
 
 module.exports = router;

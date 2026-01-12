@@ -742,3 +742,27 @@ exports.removeSavedVideo = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+exports.getLikedVideos = catchAsync(async (req, res, next) => {
+  const userId = req.user._id;
+  const likedVideos = await Video.find({ likes: userId }).populate("userId", "username avatar subscribers");
+  res.status(200).json({ status: "success", results: likedVideos.length, data: likedVideos });
+});
+
+// -----------------------------
+// Get Watch History
+// -----------------------------
+exports.getWatchHistory = catchAsync(async (req, res, next) => {
+  const userId = req.user._id;
+
+  const history = await Video.find({
+    viewedBy: userId,
+  }).populate("userId", "username avatar subscribers")
+    .sort("-updatedAt"); // Most recently viewed/updated first
+
+  res.status(200).json({
+    status: "success",
+    results: history.length,
+    data: history,
+  });
+});
