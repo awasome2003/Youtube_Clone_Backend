@@ -17,18 +17,21 @@ exports.getUserProfile = catchAsync(async (req, res, next) => {
     return next(new AppError("Invalid user ID", 400));
   }
 
-  const user = await User.findById(id).select("-password -refreshToken");
+  // Parallel execution for better performance
+  const [user, videoCount] = await Promise.all([
+    User.findById(id)
+      .select("-password -refreshToken")
+      .lean(),
+    Video.countDocuments({ userId: id })
+  ]);
 
   if (!user) {
     return next(new AppError("User not found", 404));
   }
 
-  // Get user's video count
-  const videoCount = await Video.countDocuments({ userId: id });
-
   // Format the response
   const profileData = {
-    ...user.toObject(),
+    ...user,
     videoCount,
     joinDate: user.createdAt,
   };
@@ -275,13 +278,30 @@ exports.getUserSavedVideos = catchAsync(async (req, res, next) => {
 
 // Get current user's saved videos
 exports.getCurrentUserSavedVideos = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.user._id).populate("savedVideos");
+  const user = await User.findById(req.user._id)
+    .select("savedVideos")
+    .populate({
+      path: "savedVideos",
+      select: "title description thumbnailUrl duration views createdAt userId likes dislikes tags",
+      populate: {
+        path: "userId",
+        select: "username avatar subscribersCount"
+      }
+    })
+    .lean();
+
+  // Add computed fields
+  const videosWithCounts = (user.savedVideos || []).map(video => ({
+    ...video,
+    likeCount: video.likes?.length || 0,
+    dislikeCount: video.dislikes?.length || 0
+  }));
 
   res.status(200).json({
     status: "success",
-    results: user.savedVideos.length,
+    results: videosWithCounts.length,
     data: {
-      savedVideos: user.savedVideos,
+      savedVideos: videosWithCounts,
     },
   });
 });
@@ -407,3 +427,71 @@ exports.toggleSubscribe = catchAsync(async (req, res, next) => {
     isSubscribed: !isSubscribed
   });
 });
+
+// Watch Later Controllers
+exports.toggleWatchLater = catchAsync(async (req, res, next) => {
+  const { videoId } = req.params;
+  const userId = req.user._id;
+
+  if (!mongoose.Types.ObjectId.isValid(videoId)) {
+    return next(new AppError("Invalid video ID", 400));
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    return next(new AppError("User not found", 404));
+  }
+
+  const isWatchedLater = user.watchLater.includes(videoId);
+
+  if (isWatchedLater) {
+    user.watchLater.pull(videoId);
+  } else {
+    user.watchLater.push(videoId);
+  }
+
+  await user.save();
+
+  res.status(200).json({
+    status: "success",
+    message: isWatchedLater ? "Removed from Watch Later" : "Added to Watch Later",
+    isWatchedLater: !isWatchedLater
+  });
+});
+
+exports.getWatchLaterVideos = catchAsync(async (req, res, next) => {
+  const userId = req.user._id;
+
+  // Optimized query with lean and selective population
+  const user = await User.findById(userId)
+    .select("watchLater")
+    .populate({
+      path: "watchLater",
+      select: "title description thumbnailUrl duration views createdAt userId likes dislikes tags",
+      populate: {
+        path: "userId",
+        select: "username avatar subscribersCount"
+      }
+    })
+    .lean();
+
+  if (!user) {
+    return next(new AppError("User not found", 404));
+  }
+
+  // Add computed fields to videos
+  const videosWithCounts = (user.watchLater || []).map(video => ({
+    ...video,
+    likeCount: video.likes?.length || 0,
+    dislikeCount: video.dislikes?.length || 0
+  }));
+
+  res.status(200).json({
+    status: "success",
+    results: videosWithCounts.length,
+    data: {
+      videos: videosWithCounts,
+    },
+  });
+});
+

@@ -93,6 +93,12 @@ const userSchema = new mongoose.Schema(
         ref: "Video",
       },
     ],
+    watchLater: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Video",
+      },
+    ],
 
     // Timestamps (you already have { timestamps: true })
   },
@@ -102,6 +108,13 @@ const userSchema = new mongoose.Schema(
     toObject: { virtuals: true },
   }
 );
+
+// Indexes for performance optimization
+userSchema.index({ email: 1 });
+userSchema.index({ username: 1 });
+userSchema.index({ subscribedChannels: 1 });
+userSchema.index({ watchLater: 1 });
+userSchema.index({ savedVideos: 1 });
 
 // Virtual for subscriber relationship (reverse of subscribedChannels)
 userSchema.virtual("subscribers", {

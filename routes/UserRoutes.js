@@ -85,4 +85,13 @@ router.post("/subscribe/:channelId",
   userController.toggleSubscribe
 );
 
+// Watch Later routes
+router.get("/me/watch-later", auth, userController.getWatchLaterVideos);
+router.post("/watch-later/:videoId",
+  auth,
+  param('videoId').isMongoId().withMessage('Invalid video ID'),
+  validate,
+  userController.toggleWatchLater
+);
+
 module.exports = router;

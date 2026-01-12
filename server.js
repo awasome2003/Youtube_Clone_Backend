@@ -8,10 +8,22 @@ const multer = require("multer"); // Added Multer import
 const rateLimit = require("express-rate-limit");
 const { validationResult } = require("express-validator");
 const router = express.Router();
+const compression = require("compression");
 
 // Initialize Express
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Compression middleware - should be early in the middleware stack
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+  level: 6 // Compression level (0-9, 6 is default)
+}));
 
 app.use(
   express.json({
@@ -77,12 +89,17 @@ app.use(
 
 app.use(express.urlencoded({ extended: true }));
 
+// MongoDB connection with optimized settings
 mongoose
   .connect(process.env.MONGO_URI || "mongodb://127.0.0.1:27017/youtube-clone", {
     useNewUrlParser: true,
     useUnifiedTopology: true,
+    maxPoolSize: 10, // Connection pool size
+    minPoolSize: 2,
+    socketTimeoutMS: 45000,
+    serverSelectionTimeoutMS: 5000,
   })
-  .then(() => console.log("Connected to MongoDB"))
+  .then(() => console.log("Connected to MongoDB with optimized pool"))
   .catch((err) => console.error("MongoDB connection error:", err));
 
 // Routes
@@ -95,7 +112,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // Import Routes
 const authRoutes = require("./routes/auth_routes");
 const videoRoutes = require("./routes/video_routes");
-const userRoutes = require("./routes/UserRoutes");
+const userRoutes = require("./routes/userRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 

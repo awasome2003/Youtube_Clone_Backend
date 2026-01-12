@@ -92,11 +92,15 @@ const videoSchema = new mongoose.Schema(
   }
 );
 
-// Indexes
+// Indexes for performance optimization
 videoSchema.index({ title: "text", description: "text", tags: "text" });
 videoSchema.index({ userId: 1, createdAt: -1 }); // For user videos query
 videoSchema.index({ views: -1 }); // For popular videos
 videoSchema.index({ createdAt: -1 }); // For new videos
+videoSchema.index({ likes: 1 }); // For liked videos queries
+videoSchema.index({ viewedBy: 1 }); // For watch history
+videoSchema.index({ tags: 1 }); // For tag-based recommendations
+videoSchema.index({ visibility: 1, createdAt: -1 }); // For public videos listing
 
 // Virtuals
 videoSchema.virtual("likeCount").get(function () {

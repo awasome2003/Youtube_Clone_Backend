@@ -72,12 +72,16 @@ exports.getVideoDetails = async (req, res) => {
       });
     }
 
+    // Optimized query with lean() and selective field population
     const video = await Video.findById(id)
-      .populate("userId", "username avatar subscribers")
+      .populate("userId", "username avatar subscribersCount")
       .populate({
         path: "comments",
+        select: "text user createdAt likes dislikes likeCount",
         populate: { path: "user", select: "username avatar" },
-      });
+        options: { limit: 50, sort: { createdAt: -1 } } // Limit comments for performance
+      })
+      .lean(); // Use lean for better performance
 
     if (!video) {
       return res.status(404).json({
@@ -85,6 +89,10 @@ exports.getVideoDetails = async (req, res) => {
         message: "Video not found",
       });
     }
+
+    // Add computed fields
+    video.likeCount = video.likes?.length || 0;
+    video.dislikeCount = video.dislikes?.length || 0;
 
     res.status(200).json({
       success: true,
@@ -352,6 +360,7 @@ exports.getVideos = async (req, res) => {
     const {
       search,
       limit = 20,
+      skip = 0,
       sort = "-createdAt",
       userId,
       visibility = "public",
@@ -369,29 +378,32 @@ exports.getVideos = async (req, res) => {
       query.userId = userId;
     }
 
-    // Build the query
-    const videosQuery = Video.find(query)
-      .populate("userId", "username avatar subscribers")
-      .select(
-        "title description videoUrl thumbnailUrl duration views likes dislikes tags createdAt"
-      )
-      .limit(parseInt(limit))
-      .sort(sort);
+    // Execute count and fetch in parallel for better performance
+    const [videos, totalCount] = await Promise.all([
+      Video.find(query)
+        .populate("userId", "username avatar subscribersCount")
+        .select(
+          "title description videoUrl thumbnailUrl duration views likes dislikes tags createdAt userId"
+        )
+        .limit(parseInt(limit))
+        .skip(parseInt(skip))
+        .sort(sort)
+        .lean(), // Use lean for better performance
+      Video.countDocuments(query)
+    ]);
 
-    // Execute query
-    const videos = await videosQuery.exec();
-
-    // Format duration from seconds to HH:MM:SS
+    // Format duration and add computed fields
     const formattedVideos = videos.map((video) => ({
-      ...video.toObject(),
+      ...video,
       duration: formatDuration(video.duration),
-      likeCount: video.likes.length,
-      dislikeCount: video.dislikes.length,
+      likeCount: video.likes?.length || 0,
+      dislikeCount: video.dislikes?.length || 0,
     }));
 
     res.status(200).json({
       status: "success",
       results: formattedVideos.length,
+      total: totalCount,
       data: formattedVideos,
     });
   } catch (err) {
@@ -745,24 +757,57 @@ exports.removeSavedVideo = async (req, res) => {
 
 exports.getLikedVideos = catchAsync(async (req, res, next) => {
   const userId = req.user._id;
-  const likedVideos = await Video.find({ likes: userId }).populate("userId", "username avatar subscribers");
-  res.status(200).json({ status: "success", results: likedVideos.length, data: likedVideos });
-});
+  const { limit = 50, skip = 0 } = req.query;
 
-// -----------------------------
-// Get Watch History
-// -----------------------------
-exports.getWatchHistory = catchAsync(async (req, res, next) => {
-  const userId = req.user._id;
+  // Optimized query with lean, selective fields, and pagination
+  const likedVideos = await Video.find({ likes: userId })
+    .select("title description thumbnailUrl duration views createdAt userId likes dislikes tags")
+    .populate("userId", "username avatar subscribersCount")
+    .limit(parseInt(limit))
+    .skip(parseInt(skip))
+    .sort("-createdAt")
+    .lean();
 
-  const history = await Video.find({
-    viewedBy: userId,
-  }).populate("userId", "username avatar subscribers")
-    .sort("-updatedAt"); // Most recently viewed/updated first
+  // Add computed fields
+  const videosWithCounts = likedVideos.map(video => ({
+    ...video,
+    likeCount: video.likes?.length || 0,
+    dislikeCount: video.dislikes?.length || 0
+  }));
 
   res.status(200).json({
     status: "success",
-    results: history.length,
-    data: history,
+    results: videosWithCounts.length,
+    data: videosWithCounts
+  });
+});
+
+// Get Watch History
+exports.getWatchHistory = catchAsync(async (req, res, next) => {
+  const userId = req.user._id;
+  const { limit = 50, skip = 0 } = req.query;
+
+  // Optimized query with lean, selective fields, and pagination
+  const history = await Video.find({
+    viewedBy: userId,
+  })
+    .select("title description thumbnailUrl duration views createdAt userId likes dislikes tags")
+    .populate("userId", "username avatar subscribersCount")
+    .limit(parseInt(limit))
+    .skip(parseInt(skip))
+    .sort("-updatedAt") // Most recently viewed/updated first
+    .lean();
+
+  // Add computed fields
+  const videosWithCounts = history.map(video => ({
+    ...video,
+    likeCount: video.likes?.length || 0,
+    dislikeCount: video.dislikes?.length || 0
+  }));
+
+  res.status(200).json({
+    status: "success",
+    results: videosWithCounts.length,
+    data: videosWithCounts,
   });
 });
