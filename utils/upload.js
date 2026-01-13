@@ -10,6 +10,13 @@ const storage = multer.diskStorage({
       folder = path.join(__dirname, "../uploads/videos");
     } else if (file.fieldname === "thumbnail") {
       folder = path.join(__dirname, "../uploads/thumbnails");
+    } else if (file.fieldname === "avatar") {
+      folder = path.join(__dirname, "../uploads/avatars");
+    } else if (file.fieldname === "banner") {
+      folder = path.join(__dirname, "../uploads/banners");
+    } else {
+      // Default fallback or error - for now allow but put in uploads root or temp
+      folder = path.join(__dirname, "../uploads/temp");
     }
 
     // Ensure directory exists
@@ -29,8 +36,8 @@ const fileFilter = (req, file, cb) => {
       path.extname(file.originalname).toLowerCase()
     );
     isValid ? cb(null, true) : cb(new Error("Only video files are allowed!"));
-  } else if (file.fieldname === "thumbnail") {
-    const imageTypes = /jpeg|jpg|png|gif/;
+  } else if (["thumbnail", "avatar", "banner"].includes(file.fieldname)) {
+    const imageTypes = /jpeg|jpg|png|gif|webp/;
     const isValid = imageTypes.test(
       path.extname(file.originalname).toLowerCase()
     );

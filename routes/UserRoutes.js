@@ -45,7 +45,9 @@ router.patch("/me",
 );
 
 // Update user avatar
-router.patch("/avatar", auth, userController.updateUserAvatar);
+router.patch("/avatar", auth, userController.uploadAvatar, userController.updateUserAvatar);
+// Update user banner
+router.patch("/banner", auth, userController.uploadBanner, userController.updateUserBanner);
 
 // Get user's uploaded videos
 router.get("/:id/videos",

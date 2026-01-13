@@ -149,7 +149,7 @@ exports.updateUserAvatar = catchAsync(async (req, res, next) => {
     fs.mkdirSync(uploadPath, { recursive: true });
   }
 
-  await sharp(req.file.buffer)
+  await sharp(req.file.path)
     .resize(500, 500)
     .toFormat("jpeg")
     .jpeg({ quality: 90 })
@@ -159,6 +159,50 @@ exports.updateUserAvatar = catchAsync(async (req, res, next) => {
   const updatedUser = await User.findByIdAndUpdate(
     req.user._id,
     { avatar: `/uploads/avatars/${filename}` },
+    {
+      new: true,
+      runValidators: true,
+    }
+  ).select("-password -refreshToken");
+
+  // Clean up temp file
+  if (req.file.path) {
+    fs.unlinkSync(req.file.path);
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      user: updatedUser,
+    },
+  });
+});
+
+// Update user banner
+exports.updateUserBanner = catchAsync(async (req, res, next) => {
+  if (!req.file) {
+    return next(new AppError("No image file uploaded", 400));
+  }
+
+  // Process image with sharp
+  const filename = `user-banner-${req.user._id}-${Date.now()}.jpeg`;
+  const uploadPath = path.join(__dirname, "../uploads/banners");
+
+  // Ensure directory exists
+  if (!fs.existsSync(uploadPath)) {
+    fs.mkdirSync(uploadPath, { recursive: true });
+  }
+
+  await sharp(req.file.path)
+    .resize(1500, 400) // Standard banner size
+    .toFormat("jpeg")
+    .jpeg({ quality: 90 })
+    .toFile(path.join(uploadPath, filename));
+
+  // Update user's banner field
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user._id,
+    { banner: `/uploads/banners/${filename}` },
     {
       new: true,
       runValidators: true,
@@ -308,6 +352,7 @@ exports.getCurrentUserSavedVideos = catchAsync(async (req, res, next) => {
 
 // Upload avatar middleware
 exports.uploadAvatar = upload.single("avatar");
+exports.uploadBanner = upload.single("banner");
 
 // Update video details (for user's own videos)
 exports.updateVideo = catchAsync(async (req, res, next) => {

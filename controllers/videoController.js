@@ -364,6 +364,7 @@ exports.getVideos = async (req, res) => {
       sort = "-createdAt",
       userId,
       visibility = "public",
+      category,
     } = req.query;
     let query = { visibility };
 
@@ -371,6 +372,11 @@ exports.getVideos = async (req, res) => {
     if (search) {
       const sanitizedSearch = search.replace(/[^\w\s]/gi, "");
       query.$text = { $search: sanitizedSearch };
+    }
+
+    // Category filter
+    if (category && category !== "All" && category !== "Recently uploaded") {
+      query.tags = { $regex: new RegExp(category, "i") };
     }
 
     // Filter by user if specified
