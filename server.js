@@ -112,7 +112,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // Import Routes
 const authRoutes = require("./routes/auth_routes");
 const videoRoutes = require("./routes/video_routes");
-const userRoutes = require("./routes/userRoutes");
+const userRoutes = require("./routes/UserRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 
