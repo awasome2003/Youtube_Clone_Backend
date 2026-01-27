@@ -116,6 +116,7 @@ const userRoutes = require("./routes/UserRoutes");
 const commentRoutes = require("./routes/commentRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const playlistRoutes = require("./routes/playlistRoutes");
+const adminRoutes = require("./routes/admin_routes");
 
 // Use Routes
 app.use("/api/auth", authRoutes);
@@ -124,6 +125,7 @@ app.use("/api/users", userRoutes);
 app.use("/api", commentRoutes);
 app.use("/api/notification", notificationRoutes);
 app.use("/api/playlists", playlistRoutes);
+app.use("/api/admin", adminRoutes);
 
 
 // Error Handling Middleware

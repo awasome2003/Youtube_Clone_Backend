@@ -16,7 +16,8 @@ const {
   getSavedVideos,
   removeSavedVideo,
   getLikedVideos,
-  getWatchHistory
+  getWatchHistory,
+  getRandomShorts
 } = require("../controllers/videoController");
 const { updateVideo } = require("../controllers/userController");
 const upload = require("../utils/upload");
@@ -31,6 +32,7 @@ const dislikeLimiter = rateLimit({
 
 // Public routes
 router.get("/", getVideos);
+router.get("/shorts/random", getRandomShorts);
 router.get("/:id",
   param('id').isMongoId().withMessage('Invalid video ID'),
   validate,

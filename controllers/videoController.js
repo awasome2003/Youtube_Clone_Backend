@@ -255,7 +255,7 @@ exports.uploadVideo = async (req, res) => {
     }
 
     // 2. Validate required fields
-    const { title, description, userId, tags } = req.body;
+    const { title, description, userId, tags, isShort } = req.body;
     if (!title || !userId) {
       cleanupFiles(tempVideoPath);
       return res.status(400).json({
@@ -311,6 +311,7 @@ exports.uploadVideo = async (req, res) => {
       userId,
       duration: Math.round(duration),
       tags: tags ? tags.split(",").map((tag) => tag.trim()) : [],
+      isShort: isShort === "true" || isShort === true,
     });
 
     await newVideo.save();
@@ -365,8 +366,13 @@ exports.getVideos = async (req, res) => {
       userId,
       visibility = "public",
       category,
+      isShort,
     } = req.query;
     let query = { visibility };
+
+    if (isShort !== undefined) {
+      query.isShort = isShort === "true";
+    }
 
     // Search functionality
     if (search) {
@@ -793,7 +799,6 @@ exports.getWatchHistory = catchAsync(async (req, res, next) => {
   const userId = req.user._id;
   const { limit = 50, skip = 0 } = req.query;
 
-  // Optimized query with lean, selective fields, and pagination
   const history = await Video.find({
     viewedBy: userId,
   })
@@ -801,10 +806,9 @@ exports.getWatchHistory = catchAsync(async (req, res, next) => {
     .populate("userId", "username avatar subscribersCount")
     .limit(parseInt(limit))
     .skip(parseInt(skip))
-    .sort("-updatedAt") // Most recently viewed/updated first
+    .sort("-updatedAt")
     .lean();
 
-  // Add computed fields
   const videosWithCounts = history.map(video => ({
     ...video,
     likeCount: video.likes?.length || 0,
@@ -815,5 +819,43 @@ exports.getWatchHistory = catchAsync(async (req, res, next) => {
     status: "success",
     results: videosWithCounts.length,
     data: videosWithCounts,
+  });
+});
+
+// Get random shorts for scrolling feed
+exports.getRandomShorts = catchAsync(async (req, res, next) => {
+  const shorts = await Video.aggregate([
+    { $match: { isShort: true, visibility: "public" } },
+    { $sample: { size: 10 } },
+    {
+      $lookup: {
+        from: "users",
+        localField: "userId",
+        foreignField: "_id",
+        as: "userId",
+      }
+    },
+    { $unwind: "$userId" },
+    {
+      $project: {
+        title: 1,
+        description: 1,
+        videoUrl: 1,
+        thumbnailUrl: 1,
+        views: 1,
+        likes: 1,
+        dislikes: 1,
+        createdAt: 1,
+        "userId.username": 1,
+        "userId.avatar": 1,
+        "userId._id": 1,
+      }
+    }
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    results: shorts.length,
+    data: shorts
   });
 });
